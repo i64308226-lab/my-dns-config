@@ -1,0 +1,93 @@
+# YouTube & Google Services
+youtube.com
+*.youtube.com
+googlevideo.com
+*.googlevideo.com
+ytimg.com
+*.ytimg.com
+ggpht.com
+*.ggpht.com
+youtu.be
+://googleapis.com
+://google.com
+
+# Discord
+discord.com
+*.discord.com
+discordapp.com
+*.discordapp.com
+discordapp.net
+*.discordapp.net
+discord.gg
+*.discord.gg
+discord.media
+*.discord.media
+gateway.discord.gg
+
+# Instagram & Facebook (Meta)
+instagram.com
+*.instagram.com
+cdninstagram.com
+*.cdninstagram.com
+facebook.com
+*.facebook.com
+fbcdn.net
+*.fbcdn.net
+threads.net
+*.threads.net
+
+# X (Twitter)
+twitter.com
+*.twitter.com
+x.com
+*.x.com
+twimg.com
+*.twimg.com
+t.co
+
+# Messaging & Tools
+signal.org
+*.signal.org
+whispersystems.org
+viber.com
+*.viber.com
+proton.me
+*.proton.me
+protonmail.com
+
+# AI Services
+openai.com
+*.openai.com
+chatgpt.com
+*.chatgpt.com
+anthropic.com
+*.anthropic.com
+claude.ai
+*.claude.ai
+deepseek.com
+*.deepseek.com
+
+# Entertainment & Gaming
+roblox.com
+*.roblox.com
+rbxcdn.com
+*.rbxcdn.com
+soundcloud.com
+*.soundcloud.com
+sndcdn.com
+*.sndcdn.com
+spotify.com
+*.spotify.com
+
+# Net & Speedtest
+speedtest.net
+*.speedtest.net
+ookla.com
+*.ookla.com
+fast.com
+
+# Media & News
+bbc.com
+dw.com
+rferl.org
+meduza.io
