@@ -1,0 +1,24 @@
+name: Sync to NextDNS
+on:
+  push:
+    paths:
+      - 'dns-list.txt' # Название вашего файла со списком
+
+jobs:
+  update-nextdns:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Update Allowlist
+        run: |
+          # Скрипт считывает домены из файла и отправляет их в NextDNS по API
+          while read domain; do
+            if [ ! -z "$domain" ]; then
+              curl -X POST "https://nextdns.io{{ secrets.NEXTDNS_PROFILE_ID }}/allowlist" \
+              -H "X-Api-Key: ${{ secrets.NEXTDNS_API_KEY }}" \
+              -H "Content-Type: application/json" \
+              -d "{\"id\":\"$domain\"}"
+            fi
+          done < dns-list.txt
