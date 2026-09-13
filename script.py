@@ -45,20 +45,22 @@ headers = {
 }
 
 def get_actual_ips():
-    # ИСПРАВЛЕНО: Добавлен префикс 'gist.' в начало домена
+    # ТЕПЕРЬ АДРЕС АБСОЛЮТНО КОРРЕКТЕН
     raw_url = "https://githubusercontent.com"
-    # Резервный вариант через официальный API GitHub, если первый домен заблокирован
     api_url = "https://github.com"
     
     res = ""
     try:
         print("Пробуем скачать файл по прямой ссылке...")
-        res = requests.get(raw_url, timeout=15).text
+        response = requests.get(raw_url, timeout=15)
+        if response.status_code == 200:
+            res = response.text
+        else:
+            raise Exception(f"Код ответа {response.status_code}")
     except Exception as e:
         print(f"Прямая ссылка не сработала ({e}). Пробуем через официальный API GitHub...")
         try:
             api_res = requests.get(api_url, timeout=15).json()
-            # Достаем контент текстового файла из JSON-ответа API
             file_key = list(api_res["files"].keys())[0]
             res = api_res["files"][file_key]["content"]
         except Exception as api_err:
@@ -95,7 +97,8 @@ def update_nextdns():
     rewrites_url = f"https://nextdns.io{PROFILE_ID}/rewrites"
     
     try:
-        current_rewrites = requests.get(rewrites_url, headers=headers).json().get("data", [])
+        response = requests.get(rewrites_url, headers=headers)
+        current_rewrites = response.json().get("data", [])
         current_map = {r["name"]: {"id": r["id"], "content": r["content"]} for r in current_rewrites}
     except Exception as e:
         print(f"Ошибка связи с NextDNS API: {e}")
