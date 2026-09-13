@@ -1,8 +1,9 @@
 import re
 import time
 import requests
+import sys
 
-# Конфигурация NextDNS (Ваши реальные рабочие ключи в чистом ASCII формате)
+# Конфигурация NextDNS
 API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
 PROFILE_ID = "78e1ed"
 
@@ -43,10 +44,11 @@ headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 def load_clean_ips():
     url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
     try:
-        print("Скачиваем файл с IP...")
-        res = requests.get(url, timeout=15).text
+        print("Шаг 1: Скачиваем файл с IP...", flush=True)
+        # Жесткий таймаут 5 секунд, чтобы скрипт не висел вечно
+        res = requests.get(url, timeout=5).text
     except Exception as e:
-        print(f"Критическая ошибка загрузки: {e}")
+        print(f"❌ Критическая ошибка загрузки файла: {e}", flush=True)
         return []
 
     found_ips = []
@@ -57,7 +59,6 @@ def load_clean_ips():
         if not line or line.startswith("//") or line.startswith("#") or "route ADD" in line:
             continue
         for item in pattern.findall(line):
-            # Исправлено: корректно извлекаем только строку с IP
             if "/" in item:
                 clean_ip = item.split("/")[0]
             else:
@@ -72,44 +73,45 @@ def load_clean_ips():
 def run_dns_sync():
     ips = load_clean_ips()
     if not ips:
-        print("Список IP-адресов пуст. Завершение работы.")
+        print("❌ Список IP-адресов пуст. Завершение.", flush=True)
         return
 
     base_api_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
-    print(f"Успешно получено {len(ips)} IP. Получаем текущий список правил...")
+    print(f"Шаг 2: Успешно получено {len(ips)} IP. Запрос к NextDNS...", flush=True)
     
     try:
-        response = requests.get(base_api_url, headers=headers)
+        response = requests.get(base_api_url, headers=headers, timeout=5)
         if response.status_code != 200:
-            print(f"Ошибка API. Статус-код: {response.status_code}, Ответ: {response.text}")
+            print(f"❌ Ошибка API. Код: {response.status_code}, Текст: {response.text}", flush=True)
             return
         current_rules = response.json().get("data", [])
     except Exception as e:
-        print(f"Критическая ошибка разбора JSON: {e}")
+        print(f"❌ Ошибка связи с NextDNS: {e}", flush=True)
         return
 
-    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
     if len(current_rules) > 0:
-        print(f"Найдено {len(current_rules)} старых записей. Полная очистка...")
+        print(f"Шаг 3: Найдено {len(current_rules)} старых записей. Очистка...", flush=True)
         for rule in current_rules:
             del_url = f"{base_api_url}/{rule['id']}"
-            del_res = requests.delete(del_url, headers=headers)
+            del_res = requests.delete(del_url, headers=headers, timeout=5)
             if del_res.status_code < 300:
-                print(f"Удалено старое правило: {rule['name']}")
+                print(f"Удалено: {rule['name']}", flush=True)
             else:
-                print(f"Не удалось удалить {rule['name']}: {del_res.status_code}")
-            time.sleep(1.5)  # Задержка 1.5 секунды во избежание 429 ошибки
+                print(f"Ошибка удаления {rule['name']}: {del_res.status_code}", flush=True)
+            time.sleep(1.5)
     else:
-        print("Старых записей в профиле нет. Переходим к добавлению.")
+        print("Старых записей нет. Переходим к добавлению.", flush=True)
 
-    # ЧИСТАЯ ЗАПИСЬ НОВЫХ ДОМЕНОВ
-    print("Начинаем добавление новых правил...")
+    print("Шаг 4: Начинаем добавление новых правил...", flush=True)
     for i, domain in enumerate(DOMAINS):
         target_ip = ips[i % len(ips)]
         payload = {"name": domain, "content": target_ip}
-        r = requests.post(base_api_url, headers=headers, json=payload)
+        r = requests.post(base_api_url, headers=headers, json=payload, timeout=5)
         if r.status_code < 300:
-            print(f"Успешно добавлено: {domain} -> {target_ip}")
+            print(f"Добавлено: {domain} -> {target_ip}", flush=True)
         else:
-            print(f"Ошибка добавления {domain}: {r.status_code} - {r.text}")
-        time.sleep(1.5)  # Задержка 1.5 секунды во избежание 429 
+            print(f"Ошибка {domain}: {r.status_code} - {r.text}", flush=True)
+        time.sleep(1.5)
+
+if __name__ == "__main__":
+    run_dns_sync()
