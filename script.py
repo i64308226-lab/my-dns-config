@@ -2,16 +2,30 @@ import re
 import time
 import requests
 
-# Конфигурация API (используйте ваши актуальные данные)
-API_KEY = "ВАШ_API_KEY"
-PROFILE_ID = "ВАШ_PROFILE_ID"
+# Конфигурация NextDNS (Ваши реальные рабочие ключи в чистом ASCII формате)
+API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
+PROFILE_ID = "78e1ed"
 
 DOMAINS = [
-    "youtube.googleapis.com", "yt3.ggpht.com", "yt4.ggpht.com", "yt3.googleusercontent.com",
-    "googlevideo.com", "jnn-pa.googleapis.com", "wide-youtube.l.google.com", "youtube-nocookie.com",
-    "youtube-ui.l.google.com", "youtube.com", "youtubeembeddedplayer.googleapis.com",
-    "youtubekids.com", "youtubei.googleapis.com", "youtu.be", "yt-video-upload.l.google.com",
-    "ytimg.com", "ytimg.l.google.com",
+    "://googleapis.com", "://ggpht.com", "://ggpht.com", "://googleusercontent.com",
+    "googlevideo.com", "://googleapis.com", "://google.com", "youtube-nocookie.com",
+    "://google.com", "youtube.com", "://googleapis.com",
+    "youtubekids.com", "://googleapis.com", "youtu.be", "://google.com",
+    "ytimg.com", "://google.com", "googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
+    "://googlevideo.com",
     "t.me", "tg.dev", "tg.org", "tx.me", "teleg.xyz", "telegram.ai", "telegram.asia", "telegram.biz",
     "telegram.cloud", "telegram.cn", "telegram.co", "telegram.com", "telegram.de", "telegram.dev",
     "telegram.dog", "telegram.eu", "telegram.fr", "telegram.host", "telegram.in", "telegram.info",
@@ -43,6 +57,7 @@ def load_clean_ips():
         if not line or line.startswith("//") or line.startswith("#") or "route ADD" in line:
             continue
         for item in pattern.findall(line):
+            # Исправлено: корректно извлекаем только строку с IP
             if "/" in item:
                 clean_ip = item.split("/")[0]
             else:
@@ -66,35 +81,35 @@ def run_dns_sync():
     try:
         response = requests.get(base_api_url, headers=headers)
         if response.status_code != 200:
-            print(f"Ошибка API. Статус-код: {response.status_code}")
+            print(f"Ошибка API. Статус-код: {response.status_code}, Ответ: {response.text}")
             return
         current_rules = response.json().get("data", [])
     except Exception as e:
         print(f"Критическая ошибка разбора JSON: {e}")
         return
 
+    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
     if len(current_rules) > 0:
-        print(f"Найдено {len(current_rules)} старых записей. Очистка...")
+        print(f"Найдено {len(current_rules)} старых записей. Полная очистка...")
         for rule in current_rules:
             del_url = f"{base_api_url}/{rule['id']}"
-            requests.delete(del_url, headers=headers)
-            print(f"Удалено старое правило: {rule['name']}")
-            time.sleep(1.5)  # Пауза между запросами для обхода лимитов API
+            del_res = requests.delete(del_url, headers=headers)
+            if del_res.status_code < 300:
+                print(f"Удалено старое правило: {rule['name']}")
+            else:
+                print(f"Не удалось удалить {rule['name']}: {del_res.status_code}")
+            time.sleep(1.5)  # Задержка 1.5 секунды во избежание 429 ошибки
     else:
-        print("Старых записей нет. Переходим к добавлению.")
+        print("Старых записей в профиле нет. Переходим к добавлению.")
 
+    # ЧИСТАЯ ЗАПИСЬ НОВЫХ ДОМЕНОВ
     print("Начинаем добавление новых правил...")
     for i, domain in enumerate(DOMAINS):
         target_ip = ips[i % len(ips)]
         payload = {"name": domain, "content": target_ip}
         r = requests.post(base_api_url, headers=headers, json=payload)
-        
         if r.status_code < 300:
             print(f"Успешно добавлено: {domain} -> {target_ip}")
         else:
             print(f"Ошибка добавления {domain}: {r.status_code} - {r.text}")
-            
-        time.sleep(1.5)  # Пауза 1.5 секунды для соблюдения Rate Limit
-
-if __name__ == "__main__":
-    run_dns_sync()
+        time.sleep(1.5)  # Задержка 1.5 секунды во избежание 429 
