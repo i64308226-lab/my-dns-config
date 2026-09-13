@@ -45,29 +45,22 @@ headers = {
 }
 
 def get_actual_ips():
-    # ТЕПЕРЬ АДРЕС АБСОЛЮТНО КОРРЕКТЕН
+    # Ваша точная ссылка на конкретную ревизию
     raw_url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
-    api_url = "https://github.com"
     
-    res = ""
     try:
-        print("Пробуем скачать файл по прямой ссылке...")
+        print("Скачиваем файл с IP по точной ссылке...")
         response = requests.get(raw_url, timeout=15)
         if response.status_code == 200:
             res = response.text
         else:
-            raise Exception(f"Код ответа {response.status_code}")
+            raise Exception(f"Код ответа сервера: {response.status_code}")
     except Exception as e:
-        print(f"Прямая ссылка не сработала ({e}). Пробуем через официальный API GitHub...")
-        try:
-            api_res = requests.get(api_url, timeout=15).json()
-            file_key = list(api_res["files"].keys())[0]
-            res = api_res["files"][file_key]["content"]
-        except Exception as api_err:
-            print(f"Критическая ошибка: Не удалось получить данные ни одним способом: {api_err}")
-            return []
+        print(f"Критическая ошибка загрузки: {e}")
+        return []
 
     ips = []
+    # Паттерн для поиска IPv4
     ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/[0-9]{1,2})?\b')
 
     for line in res.split("\n"):
@@ -77,6 +70,7 @@ def get_actual_ips():
         
         found = ip_pattern.findall(line)
         for item in found:
+            # Превращаем подсеть (например, 149.154.164.0/22) в рабочий IP (.1 на конце)
             if "/" in item:
                 base_ip = item.split("/")[0]
                 if base_ip.endswith(".0"):
@@ -93,11 +87,15 @@ def update_nextdns():
         print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    print(f"Успешно получено {len(ips)} IP. Начинаем синхронизацию с NextDNS профилем {PROFILE_ID}...")
-    rewrites_url = f"https://nextdns.io{PROFILE_ID}/rewrites"
+    print(f"Успешно получено {len(ips)} IP. Синхронизируем с NextDNS профилем {PROFILE_ID}...")
+    
+    # URL эндпоинта NextDNS API для управления rewrites
+    rewrites_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
     
     try:
         response = requests.get(rewrites_url, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"API вернул код {response.status_code}: {response.text}")
         current_rewrites = response.json().get("data", [])
         current_map = {r["name"]: {"id": r["id"], "content": r["content"]} for r in current_rewrites}
     except Exception as e:
@@ -115,7 +113,7 @@ def update_nextdns():
         
         payload = {"name": domain, "content": target_ip}
         r = requests.post(rewrites_url, headers=headers, json=payload)
-        if r.status_code == 201:
+        if r.status_code in [200, 201]:
             print(f"Успешно: {domain} -> {target_ip}")
         else:
             print(f"Ошибка для {domain}: {r.status_code} - {r.text}")
