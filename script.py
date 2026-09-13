@@ -45,7 +45,7 @@ headers = {
 }
 
 def get_actual_ips():
-    raw_url = "https://githubusercontent.com"
+    raw_url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
     try:
         print("Скачиваем файл с IP по точной ссылке...")
         response = requests.get(raw_url, timeout=15)
