@@ -1,10 +1,11 @@
 import re
 import requests
 
-# Конфигурация NextDNS
+# Конфигурация NextDNS (Ваши ключи)
 API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
 PROFILE_ID = "78e1ed"
 
+# Весь список доменов (без Discord)
 DOMAINS = [
     "://googleapis.com", "://ggpht.com", "://ggpht.com", "://googleusercontent.com",
     "googlevideo.com", "://googleapis.com", "://google.com", "youtube-nocookie.com",
@@ -40,7 +41,8 @@ DOMAINS = list(dict.fromkeys(DOMAINS))
 headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 
 def load_clean_ips():
-    url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
+    # Ссылка на ревизию с Gist (правильная, с gist.)
+    url = "https://githubusercontent.com"
     try:
         print("Скачиваем файл с IP по точной ссылке...")
         res = requests.get(url, timeout=15).text
@@ -56,13 +58,13 @@ def load_clean_ips():
         if not line or line.startswith("//") or line.startswith("#") or "route ADD" in line:
             continue
         for item in pattern.findall(line):
-            # Если есть маска (149.154.164.0/22), забираем только сам IP до слэша
-            if "/" in item:
-                item = item.split("/")[0]
-            # Теперь item гарантированно строка. Если она кончается на .0, меняем на .1
-            if item.endswith(".0"):
-                item = item[:-2] + ".1"
-            found_ips.append(item)
+            # ИСПРАВЛЕНО: забираем только текст до слэша, сохраняя переменную как строку
+            clean_ip = item.split("/")[0]
+            
+            # Теперь clean_ip точно строка, меняем .0 на .1
+            if clean_ip.endswith(".0"):
+                clean_ip = clean_ip[:-2] + ".1"
+            found_ips.append(clean_ip)
             
     return list(dict.fromkeys(found_ips))
 
@@ -72,22 +74,29 @@ def run_dns_sync():
         print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    base_api_url = "https://my.nextdns.io/" + str(PROFILE_ID) + "/rewrites"
+    # Ссылки API разделены, чтобы исключить баги кэширования склейки на GitHub
+    base_api_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
     print(f"Успешно получено {len(ips)} IP. Получаем текущий список Rewrites...")
     
     try:
         response = requests.get(base_api_url, headers=headers)
+        
+        # Если API выдаст ошибку, мы увидим текстовый статус от NextDNS, а не падение
         if response.status_code != 200:
-            raise Exception(f"API вернул код {response.status_code}: {response.text}")
+            print(f"❌ Ошибка API NextDNS. Статус-код: {response.status_code}")
+            print(f"Ответ сервера: {response.text}")
+            return
+            
         current_rules = response.json().get("data", [])
     except Exception as e:
-        print(f"Ошибка связи с NextDNS API: {e}")
+        print(f"Критическая ошибка разбора JSON: {e}")
         return
 
+    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
     if len(current_rules) > 0:
         print(f"Найдено {len(current_rules)} старых записей. Полная очистка...")
         for rule in current_rules:
-            del_url = base_api_url + "/" + str(rule['id'])
+            del_url = f"{base_api_url}/{rule['id']}"
             del_res = requests.delete(del_url, headers=headers)
             if del_res.status_code < 300:
                 print(f"Удалено старое правило: {rule['name']}")
@@ -96,6 +105,7 @@ def run_dns_sync():
     else:
         print("Старых записей в профиле нет. Переходим к добавлению.")
 
+    # ЧИСТАЯ ЗАПИСЬ НОВЫХ ДОМЕНОВ
     print("Начинаем добавление новых правил...")
     for i, domain in enumerate(DOMAINS):
         target_ip = ips[i % len(ips)]
