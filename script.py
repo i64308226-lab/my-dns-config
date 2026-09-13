@@ -42,7 +42,7 @@ headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 
 def load_clean_ips():
     # Ссылка на ревизию с Gist (правильная, с gist.)
-    url = "https://githubusercontent.com"
+    url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
     try:
         print("Скачиваем файл с IP по точной ссылке...")
         res = requests.get(url, timeout=15).text
