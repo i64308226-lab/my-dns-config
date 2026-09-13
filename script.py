@@ -1,13 +1,12 @@
-import os
 import re
 import requests
 
-# Конфигурация из секретов GitHub (подставит ваши данные)
-API_KEY = os.environ.get("NEXTDNS_API_KEY")
-PROFILE_ID = os.environ.get("NEXTDNS_PROFILE_ID")
+# Вшиваем ключи напрямую, чтобы обойти ошибку с Secrets на GitHub
+API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
+PROFILE_ID = "78e1ed"
 
-# 1. Прямой список доменов, которые вы указали (исключая discord)
-RAW_DOMAINS = [
+# 1. Весь список доменов (без Discord)
+DOMAINS = [
     "://googleapis.com", "://ggpht.com", "://ggpht.com", "://googleusercontent.com",
     "googlevideo.com", "://googleapis.com", "://google.com", "youtube-nocookie.com",
     "://google.com", "youtube.com", "://googleapis.com",
@@ -38,8 +37,8 @@ RAW_DOMAINS = [
     "telegram-cdn.org", "usercontent.dev", "tgram.org", "torg.org"
 ]
 
-# Удаляем случайные дубликаты доменов, если они есть
-DOMAINS = list(dict.fromkeys(RAW_DOMAINS))
+# Удаляем дубликаты
+DOMAINS = list(dict.fromkeys(DOMAINS))
 
 headers = {
     "X-Api-Key": API_KEY,
@@ -48,7 +47,7 @@ headers = {
 
 def get_actual_ips():
     # Ваша прямая raw ссылка на файл
-    raw_url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
+    raw_url = "https://githubusercontent.com"
     try:
         res = requests.get(raw_url).text
     except Exception as e:
@@ -56,18 +55,15 @@ def get_actual_ips():
         return []
 
     ips = []
-    # Поиск IPv4 адресов и CIDR подсетей
     ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/[0-9]{1,2})?\b')
 
     for line in res.split("\n"):
         line = line.strip()
-        # Пропускаем комментарии, команды роутера и пустые строки
         if not line or line.startswith("//") or line.startswith("#") or "route ADD" in line:
             continue
         
         found = ip_pattern.findall(line)
         for item in found:
-            # Превращаем подсеть (например, 149.154.164.0/22) в рабочий IP с .1 на конце
             if "/" in item:
                 base_ip = item.split("/")[0]
                 if base_ip.endswith(".0"):
@@ -76,50 +72,39 @@ def get_actual_ips():
                     item = base_ip
             ips.append(item)
 
-    # Убираем дубликаты IP, сохраняя порядок
     return list(dict.fromkeys(ips))
 
 def update_nextdns():
     ips = get_actual_ips()
     if not ips:
-        print("Список IP-адресов пуст. Проверьте источник.")
+        print("Список IP-адресов пуст.")
         return
 
-    print(f"Успешно получено {len(ips)} уникальных IP-адресов из Gist.")
-    
+    print(f"Успешно получено {len(ips)} IP из файла. Синхронизируем с NextDNS...")
     rewrites_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
     
-    # Получаем текущие записи из NextDNS, чтобы не забивать лимиты API повторами
     try:
         current_rewrites = requests.get(rewrites_url, headers=headers).json().get("data", [])
         current_map = {r["name"]: {"id": r["id"], "content": r["content"]} for r in current_rewrites}
     except Exception as e:
-        print(f"Не удалось получить текущие настройки NextDNS: {e}")
+        print(f"Ошибка связи с NextDNS API: {e}")
         return
 
-    # Синхронизация доменов и IP по цепочке
     for i, domain in enumerate(DOMAINS):
-        target_ip = ips[i % len(ips)] # Зацикливаем IP, если доменов больше
+        target_ip = ips[i % len(ips)]
         
-        # Если домен уже прописан в NextDNS
         if domain in current_map:
-            # И IP совпадает — пропускаем
             if current_map[domain]["content"] == target_ip:
                 continue
-            # Если IP изменился в Gist — удаляем старое правило
             else:
                 requests.delete(f"{rewrites_url}/{current_map[domain]['id']}", headers=headers)
         
-        # Отправляем обновленное/новое правило по API
         payload = {"name": domain, "content": target_ip}
         r = requests.post(rewrites_url, headers=headers, json=payload)
         if r.status_code == 201:
             print(f"Синхронизировано: {domain} -> {target_ip}")
         else:
-            print(f"Ошибка API для {domain}: {r.status_code} - {r.text}")
+            print(f"Ошибка для {domain}: {r.status_code} - {r.text}")
 
 if __name__ == "__main__":
-    if not API_KEY or not PROFILE_ID:
-        print("Ошибка: Переменные NEXTDNS_API_KEY или NEXTDNS_PROFILE_ID не найдены в GitHub Secrets!")
-    else:
-        update_nextdns()
+    update_nextdns()
