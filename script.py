@@ -95,13 +95,13 @@ def update_nextdns():
         print(f"Ошибка связи с NextDNS API: {e}")
         return
 
-    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
-    if current_rewrites:
+    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ (Простые проверки без оператора in)
+    if len(current_rewrites) > 0:
         print(f"Найдено {len(current_rewrites)} старых записей. Полная очистка...")
         for rule in current_rewrites:
             del_url = f"{rewrites_url}/{rule['id']}"
             del_res = requests.delete(del_url, headers=headers)
-            if del_res.status_code in:
+            if del_res.status_code < 300:
                 print(f"Удалено старое правило: {rule['name']}")
             else:
                 print(f"Не удалось удалить {rule['name']}: {del_res.status_code}")
@@ -115,7 +115,7 @@ def update_nextdns():
         payload = {"name": domain, "content": target_ip}
         
         r = requests.post(rewrites_url, headers=headers, json=payload)
-        if r.status_code in:
+        if r.status_code < 300:
             print(f"Успешно добавлено: {domain} -> {target_ip}")
         else:
             print(f"Ошибка добавления {domain}: {r.status_code} - {r.text}")
