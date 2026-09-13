@@ -67,12 +67,13 @@ def get_actual_ips():
         
         found = ip_pattern.findall(line)
         for item in found:
+            # Исправленная обработка подсетей
             if "/" in item:
-                base_ip = item.split("/")
-                if base_ip.endswith(".0"):
-                    item = base_ip[:-1] + "1"
+                ip_part = item.split("/")[0]
+                if ip_part.endswith(".0"):
+                    item = ip_part[:-1] + "1"
                 else:
-                    item = base_ip
+                    item = ip_part
             ips.append(item)
 
     return list(dict.fromkeys(ips))
@@ -95,7 +96,7 @@ def update_nextdns():
         print(f"Ошибка связи с NextDNS API: {e}")
         return
 
-    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ (Простые проверки без оператора in)
+    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
     if len(current_rewrites) > 0:
         print(f"Найдено {len(current_rewrites)} старых записей. Полная очистка...")
         for rule in current_rewrites:
