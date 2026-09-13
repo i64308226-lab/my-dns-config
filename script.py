@@ -72,7 +72,7 @@ def run_dns_sync():
         print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    base_api_url = "https://nextdns.io" + str(PROFILE_ID) + "/rewrites"
+    base_api_url = "https://my.nextdns.io/" + str(PROFILE_ID) + "/rewrites"
     print(f"Успешно получено {len(ips)} IP. Получаем текущий список Rewrites...")
     
     try:
