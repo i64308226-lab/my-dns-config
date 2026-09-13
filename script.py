@@ -1,11 +1,11 @@
 import re
 import requests
 
-# Вшиваем ключи напрямую, чтобы обойти ошибку с Secrets на GitHub
+# Конфигурация NextDNS (Ваши рабочие ключи)
 API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
 PROFILE_ID = "78e1ed"
 
-# 1. Весь список доменов (без Discord)
+# Весь список доменов (без Discord)
 DOMAINS = [
     "://googleapis.com", "://ggpht.com", "://ggpht.com", "://googleusercontent.com",
     "googlevideo.com", "://googleapis.com", "://google.com", "youtube-nocookie.com",
@@ -37,7 +37,6 @@ DOMAINS = [
     "telegram-cdn.org", "usercontent.dev", "tgram.org", "torg.org"
 ]
 
-# Удаляем дубликаты
 DOMAINS = list(dict.fromkeys(DOMAINS))
 
 headers = {
@@ -46,13 +45,25 @@ headers = {
 }
 
 def get_actual_ips():
-    # Ваша прямая raw ссылка на файл
+    # ИСПРАВЛЕНО: Добавлен префикс 'gist.' в начало домена
     raw_url = "https://githubusercontent.com"
+    # Резервный вариант через официальный API GitHub, если первый домен заблокирован
+    api_url = "https://github.com"
+    
+    res = ""
     try:
-        res = requests.get(raw_url).text
+        print("Пробуем скачать файл по прямой ссылке...")
+        res = requests.get(raw_url, timeout=15).text
     except Exception as e:
-        print(f"Ошибка загрузки файла: {e}")
-        return []
+        print(f"Прямая ссылка не сработала ({e}). Пробуем через официальный API GitHub...")
+        try:
+            api_res = requests.get(api_url, timeout=15).json()
+            # Достаем контент текстового файла из JSON-ответа API
+            file_key = list(api_res["files"].keys())[0]
+            res = api_res["files"][file_key]["content"]
+        except Exception as api_err:
+            print(f"Критическая ошибка: Не удалось получить данные ни одним способом: {api_err}")
+            return []
 
     ips = []
     ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/[0-9]{1,2})?\b')
@@ -77,11 +88,11 @@ def get_actual_ips():
 def update_nextdns():
     ips = get_actual_ips()
     if not ips:
-        print("Список IP-адресов пуст.")
+        print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    print(f"Успешно получено {len(ips)} IP из файла. Синхронизируем с NextDNS...")
-    rewrites_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
+    print(f"Успешно получено {len(ips)} IP. Начинаем синхронизацию с NextDNS профилем {PROFILE_ID}...")
+    rewrites_url = f"https://nextdns.io{PROFILE_ID}/rewrites"
     
     try:
         current_rewrites = requests.get(rewrites_url, headers=headers).json().get("data", [])
@@ -102,7 +113,7 @@ def update_nextdns():
         payload = {"name": domain, "content": target_ip}
         r = requests.post(rewrites_url, headers=headers, json=payload)
         if r.status_code == 201:
-            print(f"Синхронизировано: {domain} -> {target_ip}")
+            print(f"Успешно: {domain} -> {target_ip}")
         else:
             print(f"Ошибка для {domain}: {r.status_code} - {r.text}")
 
