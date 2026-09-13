@@ -45,9 +45,7 @@ headers = {
 }
 
 def get_actual_ips():
-    # Ваша точная ссылка на конкретную ревизию
-    raw_url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
-    
+    raw_url = "https://githubusercontent.com"
     try:
         print("Скачиваем файл с IP по точной ссылке...")
         response = requests.get(raw_url, timeout=15)
@@ -60,7 +58,6 @@ def get_actual_ips():
         return []
 
     ips = []
-    # Паттерн для поиска IPv4
     ip_pattern = re.compile(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?:/[0-9]{1,2})?\b')
 
     for line in res.split("\n"):
@@ -70,9 +67,8 @@ def get_actual_ips():
         
         found = ip_pattern.findall(line)
         for item in found:
-            # Превращаем подсеть (например, 149.154.164.0/22) в рабочий IP (.1 на конце)
             if "/" in item:
-                base_ip = item.split("/")[0]
+                base_ip = item.split("/")
                 if base_ip.endswith(".0"):
                     item = base_ip[:-1] + "1"
                 else:
@@ -87,36 +83,42 @@ def update_nextdns():
         print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    print(f"Успешно получено {len(ips)} IP. Синхронизируем с NextDNS профилем {PROFILE_ID}...")
-    
-    # URL эндпоинта NextDNS API для управления rewrites
-    rewrites_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
+    print(f"Успешно получено {len(ips)} IP. Получаем текущий список Rewrites...")
+    rewrites_url = f"https://nextdns.io{PROFILE_ID}/rewrites"
     
     try:
         response = requests.get(rewrites_url, headers=headers)
         if response.status_code != 200:
             raise Exception(f"API вернул код {response.status_code}: {response.text}")
         current_rewrites = response.json().get("data", [])
-        current_map = {r["name"]: {"id": r["id"], "content": r["content"]} for r in current_rewrites}
     except Exception as e:
         print(f"Ошибка связи с NextDNS API: {e}")
         return
 
+    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
+    if current_rewrites:
+        print(f"Найдено {len(current_rewrites)} старых записей. Полная очистка...")
+        for rule in current_rewrites:
+            del_url = f"{rewrites_url}/{rule['id']}"
+            del_res = requests.delete(del_url, headers=headers)
+            if del_res.status_code in:
+                print(f"Удалено старое правило: {rule['name']}")
+            else:
+                print(f"Не удалось удалить {rule['name']}: {del_res.status_code}")
+    else:
+        print("Старых записей в профиле нет. Переходим к добавлению.")
+
+    # ЧИСТАЯ ЗАПИСЬ НОВЫХ ДОМЕНОВ
+    print("Начинаем добавление новых правил...")
     for i, domain in enumerate(DOMAINS):
         target_ip = ips[i % len(ips)]
-        
-        if domain in current_map:
-            if current_map[domain]["content"] == target_ip:
-                continue
-            else:
-                requests.delete(f"{rewrites_url}/{current_map[domain]['id']}", headers=headers)
-        
         payload = {"name": domain, "content": target_ip}
+        
         r = requests.post(rewrites_url, headers=headers, json=payload)
-        if r.status_code in [200, 201]:
-            print(f"Успешно: {domain} -> {target_ip}")
+        if r.status_code in:
+            print(f"Успешно добавлено: {domain} -> {target_ip}")
         else:
-            print(f"Ошибка для {domain}: {r.status_code} - {r.text}")
+            print(f"Ошибка добавления {domain}: {r.status_code} - {r.text}")
 
 if __name__ == "__main__":
     update_nextdns()
