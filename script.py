@@ -1,31 +1,17 @@
 import re
+import time
 import requests
 
-# Конфигурация NextDNS (Ваши ключи)
-API_KEY = "48f9050a00106fba82df54ac3cbe967d397b6d78"
-PROFILE_ID = "78e1ed"
+# Конфигурация API (используйте ваши актуальные данные)
+API_KEY = "ВАШ_API_KEY"
+PROFILE_ID = "ВАШ_PROFILE_ID"
 
-# Весь список доменов (без Discord)
 DOMAINS = [
-    "://googleapis.com", "://ggpht.com", "://ggpht.com", "://googleusercontent.com",
-    "googlevideo.com", "://googleapis.com", "://google.com", "youtube-nocookie.com",
-    "://google.com", "youtube.com", "://googleapis.com",
-    "youtubekids.com", "://googleapis.com", "youtu.be", "://google.com",
-    "ytimg.com", "://google.com", "googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com", "://googlevideo.com", "://googlevideo.com",
-    "://googlevideo.com",
+    "youtube.googleapis.com", "yt3.ggpht.com", "yt4.ggpht.com", "yt3.googleusercontent.com",
+    "googlevideo.com", "jnn-pa.googleapis.com", "wide-youtube.l.google.com", "youtube-nocookie.com",
+    "youtube-ui.l.google.com", "youtube.com", "youtubeembeddedplayer.googleapis.com",
+    "youtubekids.com", "youtubei.googleapis.com", "youtu.be", "yt-video-upload.l.google.com",
+    "ytimg.com", "ytimg.l.google.com",
     "t.me", "tg.dev", "tg.org", "tx.me", "teleg.xyz", "telegram.ai", "telegram.asia", "telegram.biz",
     "telegram.cloud", "telegram.cn", "telegram.co", "telegram.com", "telegram.de", "telegram.dev",
     "telegram.dog", "telegram.eu", "telegram.fr", "telegram.host", "telegram.in", "telegram.info",
@@ -41,10 +27,9 @@ DOMAINS = list(dict.fromkeys(DOMAINS))
 headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 
 def load_clean_ips():
-    # Ссылка на ревизию с Gist (правильная, с gist.)
-    url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
+    url = "https://githubusercontent.com"
     try:
-        print("Скачиваем файл с IP по точной ссылке...")
+        print("Скачиваем файл с IP...")
         res = requests.get(url, timeout=15).text
     except Exception as e:
         print(f"Критическая ошибка загрузки: {e}")
@@ -58,10 +43,11 @@ def load_clean_ips():
         if not line or line.startswith("//") or line.startswith("#") or "route ADD" in line:
             continue
         for item in pattern.findall(line):
-            # ИСПРАВЛЕНО: забираем только текст до слэша, сохраняя переменную как строку
-            clean_ip = item.split("/")[0]
-            
-            # Теперь clean_ip точно строка, меняем .0 на .1
+            if "/" in item:
+                clean_ip = item.split("/")[0]
+            else:
+                clean_ip = item
+                
             if clean_ip.endswith(".0"):
                 clean_ip = clean_ip[:-2] + ".1"
             found_ips.append(clean_ip)
@@ -74,47 +60,41 @@ def run_dns_sync():
         print("Список IP-адресов пуст. Завершение работы.")
         return
 
-    # Ссылки API разделены, чтобы исключить баги кэширования склейки на GitHub
     base_api_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
-    print(f"Успешно получено {len(ips)} IP. Получаем текущий список Rewrites...")
+    print(f"Успешно получено {len(ips)} IP. Получаем текущий список правил...")
     
     try:
         response = requests.get(base_api_url, headers=headers)
-        
-        # Если API выдаст ошибку, мы увидим текстовый статус от NextDNS, а не падение
         if response.status_code != 200:
-            print(f"❌ Ошибка API NextDNS. Статус-код: {response.status_code}")
-            print(f"Ответ сервера: {response.text}")
+            print(f"Ошибка API. Статус-код: {response.status_code}")
             return
-            
         current_rules = response.json().get("data", [])
     except Exception as e:
         print(f"Критическая ошибка разбора JSON: {e}")
         return
 
-    # ПОЛНОЕ УДАЛЕНИЕ СТАРЫХ ЗАПИСЕЙ
     if len(current_rules) > 0:
-        print(f"Найдено {len(current_rules)} старых записей. Полная очистка...")
+        print(f"Найдено {len(current_rules)} старых записей. Очистка...")
         for rule in current_rules:
             del_url = f"{base_api_url}/{rule['id']}"
-            del_res = requests.delete(del_url, headers=headers)
-            if del_res.status_code < 300:
-                print(f"Удалено старое правило: {rule['name']}")
-            else:
-                print(f"Не удалось удалить {rule['name']}: {del_res.status_code}")
+            requests.delete(del_url, headers=headers)
+            print(f"Удалено старое правило: {rule['name']}")
+            time.sleep(1.5)  # Пауза между запросами для обхода лимитов API
     else:
-        print("Старых записей в профиле нет. Переходим к добавлению.")
+        print("Старых записей нет. Переходим к добавлению.")
 
-    # ЧИСТАЯ ЗАПИСЬ НОВЫХ ДОМЕНОВ
     print("Начинаем добавление новых правил...")
     for i, domain in enumerate(DOMAINS):
         target_ip = ips[i % len(ips)]
         payload = {"name": domain, "content": target_ip}
         r = requests.post(base_api_url, headers=headers, json=payload)
+        
         if r.status_code < 300:
             print(f"Успешно добавлено: {domain} -> {target_ip}")
         else:
             print(f"Ошибка добавления {domain}: {r.status_code} - {r.text}")
+            
+        time.sleep(1.5)  # Пауза 1.5 секунды для соблюдения Rate Limit
 
 if __name__ == "__main__":
     run_dns_sync()
