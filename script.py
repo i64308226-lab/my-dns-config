@@ -46,7 +46,7 @@ DOMAINS = list(dict.fromkeys(DOMAINS))
 headers = {"X-Api-Key": API_KEY, "Content-Type": "application/json"}
 
 def run_dns_sync():
-    base_api_url = f"https://nextdns.io{PROFILE_ID}/rewrites"
+    base_api_url = f"https://api.nextdns.io/profiles/{PROFILE_ID}/rewrites"
     print("Шаг 1: Подключаемся к NextDNS API для проверки старых записей...", flush=True)
     
     try:
