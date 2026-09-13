@@ -46,7 +46,7 @@ headers = {
 
 def get_actual_ips():
     # ТЕПЕРЬ АДРЕС АБСОЛЮТНО КОРРЕКТЕН
-    raw_url = "https://githubusercontent.com"
+    raw_url = "https://gist.githubusercontent.com/iamwildtuna/7772b7c84a11bf6e1385f23096a73a15/raw/5b6d0cd45636d151c15da95f87a394ee6016e625/gistfile2.txt"
     api_url = "https://github.com"
     
     res = ""
