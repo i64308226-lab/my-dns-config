@@ -2,8 +2,8 @@ name: Update NextDNS Rewrites
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Запускается автоматически раз в сутки
-  workflow_dispatch: # Позволяет запускать кнопкой вручную в любое время
+    - cron: '0 0 * * *' # Автозапуск раз в сутки
+  workflow_dispatch: # Кнопка для ручного запуска
 
 jobs:
   update-dns:
@@ -21,7 +21,4 @@ jobs:
         run: pip install requests
 
       - name: Run sync script
-        env:
-          NEXTDNS_API_KEY: ${{ secrets.NEXTDNS_API_KEY }}
-          NEXTDNS_PROFILE_ID: ${{ secrets.NEXTDNS_PROFILE_ID }}
         run: python script.py
